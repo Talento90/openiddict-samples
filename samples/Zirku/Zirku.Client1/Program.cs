@@ -6,7 +6,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OpenIddict.Client;
 using Zirku.Client1;
-using static OpenIddict.Abstractions.OpenIddictConstants;
 
 var host = new HostBuilder()
     .ConfigureLogging(options => options.AddDebug())
@@ -43,8 +42,7 @@ var host = new HostBuilder()
                        .AddDevelopmentSigningCertificate();
 
                 // Add the operating system integration.
-                options.UseSystemIntegration()
-                       .SetAllowedEmbeddedWebServerPorts(8739);
+                options.UseSystemIntegration();
 
                 // Register the System.Net.Http integration and use the identity of the current
                 // assembly as a more specific user agent, which can be useful when dealing with
@@ -56,11 +54,10 @@ var host = new HostBuilder()
                 options.AddRegistration(new OpenIddictClientRegistration
                 {
                     Issuer = new Uri("https://localhost:44319/", UriKind.Absolute),
-                    ProviderName = "Local",
 
                     ClientId = "console_app",
-                    RedirectUri = new Uri("http://localhost:8739/", UriKind.Absolute),
-                    Scopes = { Scopes.OpenId, "api1", "api2" }
+                    RedirectUri = new Uri("/", UriKind.Relative),
+                    Scopes = { "api1", "api2" }
                 });
             });
 

@@ -6,7 +6,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Aridka.Server.Helpers;
@@ -82,11 +81,9 @@ public class AuthorizationController : Controller
 
         return claim.Type switch
         {
-            Claims.Name or 
-            Claims.Subject 
-                => new[] { Destinations.AccessToken, Destinations.IdentityToken },
+            Claims.Name or Claims.Subject => [Destinations.AccessToken, Destinations.IdentityToken],
 
-            _ => new[] { Destinations.AccessToken },
+            _ => [Destinations.AccessToken],
         };
     }
 }

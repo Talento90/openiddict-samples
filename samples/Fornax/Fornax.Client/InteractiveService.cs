@@ -10,11 +10,11 @@ namespace Fornax.Client;
 
 public class InteractiveService : BackgroundService
 {
-    private readonly IHostApplicationLifetime _lifetime;
+    private readonly IApplicationLifetime _lifetime;
     private readonly OpenIddictClientService _service;
 
     public InteractiveService(
-        IHostApplicationLifetime lifetime,
+        IApplicationLifetime lifetime,
         OpenIddictClientService service)
     {
         _lifetime = lifetime;
@@ -31,18 +31,27 @@ public class InteractiveService : BackgroundService
         }
 
         Console.WriteLine("Press any key to start the authentication process.");
-        await Task.Run(Console.ReadKey).WaitAsync(stoppingToken);
+        await WaitAsync(Task.Run(Console.ReadKey, stoppingToken), stoppingToken);
 
         try
         {
-            // Ask OpenIddict to initiate the authentication flow (typically, by
-            // starting the system browser) and wait for the user to complete it.
-            var (_, response, principal) = await _service.AuthenticateInteractivelyAsync(
-                provider: "Local", cancellationToken: stoppingToken);
+            // Ask OpenIddict to initiate the authentication flow (typically, by starting the system browser).
+            var result = await _service.ChallengeInteractivelyAsync(new()
+            {
+                CancellationToken = stoppingToken
+            });
+
+            Console.WriteLine("System browser launched.");
+
+            // Wait for the user to complete the authorization process.
+            var response = await _service.AuthenticateInteractivelyAsync(new()
+            {
+                Nonce = result.Nonce
+            });
 
             Console.WriteLine("Claims:");
 
-            foreach (var claim in principal.Claims)
+            foreach (var claim in response.Principal.Claims)
             {
                 Console.WriteLine("{0}: {1}", claim.Type, claim.Value);
             }
@@ -50,7 +59,7 @@ public class InteractiveService : BackgroundService
             Console.WriteLine();
             Console.WriteLine("Access token:");
             Console.WriteLine();
-            Console.WriteLine(response.AccessToken);
+            Console.WriteLine(response.BackchannelAccessToken ?? response.FrontchannelAccessToken);
         }
 
         catch (OperationCanceledException)
@@ -66,6 +75,21 @@ public class InteractiveService : BackgroundService
         catch
         {
             Console.WriteLine("An error occurred while trying to authenticate the user.");
+        }
+
+        static async Task<T> WaitAsync<T>(Task<T> task, CancellationToken cancellationToken)
+        {
+            var source = new TaskCompletionSource<bool>(TaskCreationOptions.None);
+
+            using (cancellationToken.Register(static state => ((TaskCompletionSource<bool>) state!).SetResult(true), source))
+            {
+                if (await Task.WhenAny(task, source.Task) == source.Task)
+                {
+                    throw new OperationCanceledException(cancellationToken);
+                }
+
+                return await task;
+            }
         }
     }
 }

@@ -33,7 +33,7 @@ public class AuthorizeModel : PageModel
         {
             // If the client application requested promptless authentication,
             // return an error indicating that the user is not logged in.
-            if (request.HasPrompt(Prompts.None))
+            if (request.HasPromptValue(PromptValues.None))
             {
                 return Forbid(
                     authenticationSchemes: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme,
@@ -49,17 +49,17 @@ public class AuthorizeModel : PageModel
                 properties: new AuthenticationProperties
                 {
                     RedirectUri = Request.PathBase + Request.Path + QueryString.Create(
-                        Request.HasFormContentType ? Request.Form.ToList() : Request.Query.ToList())
+                        Request.HasFormContentType ? [.. Request.Form] : [.. Request.Query])
                 });
         }
 
         // If prompt=login was specified by the client application,
         // immediately return the user agent to the login page.
-        if (request.HasPrompt(Prompts.Login))
+        if (request.HasPromptValue(PromptValues.Login))
         {
             // To avoid endless login -> authorization redirects, the prompt=login flag
             // is removed from the authorization request payload before redirecting the user.
-            var prompt = string.Join(" ", request.GetPrompts().Remove(Prompts.Login));
+            var prompt = string.Join(" ", request.GetPromptValues().Remove(PromptValues.Login));
 
             var parameters = Request.HasFormContentType ?
                 Request.Form.Where(parameter => parameter.Key != Parameters.Prompt).ToList() :

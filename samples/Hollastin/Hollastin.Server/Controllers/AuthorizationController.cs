@@ -78,7 +78,8 @@ public class AuthorizationController : Controller
             identity.SetClaim(Claims.Subject, await _userManager.GetUserIdAsync(user))
                     .SetClaim(Claims.Email, await _userManager.GetEmailAsync(user))
                     .SetClaim(Claims.Name, await _userManager.GetUserNameAsync(user))
-                    .SetClaims(Claims.Role, (await _userManager.GetRolesAsync(user)).ToImmutableArray());
+                    .SetClaim(Claims.PreferredUsername, await _userManager.GetUserNameAsync(user))
+                    .SetClaims(Claims.Role, [.. (await _userManager.GetRolesAsync(user))]);
 
             // Set the list of scopes granted to the client application.
             identity.SetScopes(new[]
@@ -105,7 +106,7 @@ public class AuthorizationController : Controller
 
         switch (claim.Type)
         {
-            case Claims.Name:
+            case Claims.Name or Claims.PreferredUsername:
                 yield return Destinations.AccessToken;
 
                 if (claim.Subject.HasScope(Scopes.Profile))

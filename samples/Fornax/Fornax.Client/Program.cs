@@ -43,7 +43,7 @@ var host = new HostBuilder()
 
                 // Add the operating system integration.
                 options.UseSystemIntegration()
-                       .SetAllowedEmbeddedWebServerPorts(7891);
+                       .SetApplicationDiscriminator("4N494SXGMTWQLZE");
 
                 // Register the System.Net.Http integration and use the identity of the current
                 // assembly as a more specific user agent, which can be useful when dealing with
@@ -55,10 +55,9 @@ var host = new HostBuilder()
                 options.AddRegistration(new OpenIddictClientRegistration
                 {
                     Issuer = new Uri("https://localhost:44387/", UriKind.Absolute),
-                    ProviderName = "Local",
 
                     ClientId = "console_app",
-                    RedirectUri = new Uri("http://localhost:7891/", UriKind.Absolute)
+                    RedirectUri = new Uri("/", UriKind.Relative)
                 });
             });
 
@@ -70,6 +69,9 @@ var host = new HostBuilder()
 
         // Register the background service responsible for handling the console interactions.
         services.AddHostedService<InteractiveService>();
+
+        // Prevent the console lifetime manager from writing status messages to the output stream.
+        services.Configure<ConsoleLifetimeOptions>(options => options.SuppressStatusMessages = true);
     })
     .UseConsoleLifetime()
     .Build();

@@ -77,7 +77,8 @@ public class AuthorizationController : Controller
             identity.SetClaim(Claims.Subject, await _userManager.GetUserIdAsync(user))
                     .SetClaim(Claims.Email, await _userManager.GetEmailAsync(user))
                     .SetClaim(Claims.Name, await _userManager.GetUserNameAsync(user))
-                    .SetClaims(Claims.Role, (await _userManager.GetRolesAsync(user)).ToImmutableArray());
+                    .SetClaim(Claims.PreferredUsername, await _userManager.GetUserNameAsync(user))
+                    .SetClaims(Claims.Role, [.. (await _userManager.GetRolesAsync(user))]);
 
             // Note: in this sample, the granted scopes match the requested scope
             // but you may want to allow the user to uncheck specific scopes.
@@ -128,7 +129,8 @@ public class AuthorizationController : Controller
             identity.SetClaim(Claims.Subject, await _userManager.GetUserIdAsync(user))
                     .SetClaim(Claims.Email, await _userManager.GetEmailAsync(user))
                     .SetClaim(Claims.Name, await _userManager.GetUserNameAsync(user))
-                    .SetClaims(Claims.Role, (await _userManager.GetRolesAsync(user)).ToImmutableArray());
+                    .SetClaim(Claims.PreferredUsername, await _userManager.GetUserNameAsync(user))
+                    .SetClaims(Claims.Role, [.. (await _userManager.GetRolesAsync(user))]);
 
             identity.SetDestinations(GetDestinations);
 
@@ -146,7 +148,7 @@ public class AuthorizationController : Controller
 
         switch (claim.Type)
         {
-            case Claims.Name:
+            case Claims.Name or Claims.PreferredUsername:
                 yield return Destinations.AccessToken;
 
                 if (claim.Subject.HasScope(Scopes.Profile))

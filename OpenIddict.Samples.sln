@@ -46,6 +46,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "eng", "eng", "{713DB665-E7C
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "root", "root", "{1DBD2338-AD2E-4DCF-B1C3-0B4E31E76585}"
 	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
 		.gitattributes = .gitattributes
 		.gitignore = .gitignore
 		build.cmd = build.cmd
@@ -126,7 +127,17 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Mortis.Server", "samples\Mo
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Mortis.Client", "samples\Mortis\Mortis.Client\Mortis.Client.csproj", "{561DF817-8F4F-477A-AD66-DA971E99A666}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Zirku.Client2", "samples\Zirku\Zirku.Client2\Zirku.Client2.csproj", "{25D6FF23-937F-4E73-8237-4E805ACDB6C9}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Zirku.Client2", "samples\Zirku\Zirku.Client2\Zirku.Client2.csproj", "{25D6FF23-937F-4E73-8237-4E805ACDB6C9}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Sorgan", "Sorgan", "{F2076FDE-06F9-441B-938E-97953A3C0906}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sorgan.WinForms.Client", "samples\Sorgan\Sorgan.WinForms.Client\Sorgan.WinForms.Client.csproj", "{6E1B3224-B529-4B45-AD66-969BBBA08F63}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sorgan.Wpf.Client", "samples\Sorgan\Sorgan.Wpf.Client\Sorgan.Wpf.Client.csproj", "{5132ABBD-6FC5-4232-B9E1-7F53EC52C826}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sorgan.BlazorHybrid.Client", "samples\Sorgan\Sorgan.BlazorHybrid.Client\Sorgan.BlazorHybrid.Client.csproj", "{C392496F-B3E4-4B7C-97F3-66EB13206985}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sorgan.Console.Client", "samples\Sorgan\Sorgan.Console.Client\Sorgan.Console.Client.csproj", "{A2B093AC-6044-467E-B94F-936343DCD11B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -270,6 +281,22 @@ Global
 		{25D6FF23-937F-4E73-8237-4E805ACDB6C9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{25D6FF23-937F-4E73-8237-4E805ACDB6C9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{25D6FF23-937F-4E73-8237-4E805ACDB6C9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6E1B3224-B529-4B45-AD66-969BBBA08F63}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6E1B3224-B529-4B45-AD66-969BBBA08F63}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6E1B3224-B529-4B45-AD66-969BBBA08F63}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6E1B3224-B529-4B45-AD66-969BBBA08F63}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5132ABBD-6FC5-4232-B9E1-7F53EC52C826}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5132ABBD-6FC5-4232-B9E1-7F53EC52C826}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5132ABBD-6FC5-4232-B9E1-7F53EC52C826}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5132ABBD-6FC5-4232-B9E1-7F53EC52C826}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C392496F-B3E4-4B7C-97F3-66EB13206985}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C392496F-B3E4-4B7C-97F3-66EB13206985}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C392496F-B3E4-4B7C-97F3-66EB13206985}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C392496F-B3E4-4B7C-97F3-66EB13206985}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A2B093AC-6044-467E-B94F-936343DCD11B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A2B093AC-6044-467E-B94F-936343DCD11B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A2B093AC-6044-467E-B94F-936343DCD11B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A2B093AC-6044-467E-B94F-936343DCD11B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -323,6 +350,11 @@ Global
 		{AEE318EE-4D49-4262-9CBE-6CC36051668E} = {036564F9-3EDF-41A3-B2A0-E6BC959E65BA}
 		{561DF817-8F4F-477A-AD66-DA971E99A666} = {036564F9-3EDF-41A3-B2A0-E6BC959E65BA}
 		{25D6FF23-937F-4E73-8237-4E805ACDB6C9} = {E0ADFFCA-A604-42D1-8F6D-DE888E061188}
+		{F2076FDE-06F9-441B-938E-97953A3C0906} = {8B467944-153B-4C90-BAB1-8F1B34C3075A}
+		{6E1B3224-B529-4B45-AD66-969BBBA08F63} = {F2076FDE-06F9-441B-938E-97953A3C0906}
+		{5132ABBD-6FC5-4232-B9E1-7F53EC52C826} = {F2076FDE-06F9-441B-938E-97953A3C0906}
+		{C392496F-B3E4-4B7C-97F3-66EB13206985} = {F2076FDE-06F9-441B-938E-97953A3C0906}
+		{A2B093AC-6044-467E-B94F-936343DCD11B} = {F2076FDE-06F9-441B-938E-97953A3C0906}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {F3ECDD26-F40D-4AB4-BC48-8DF143F98FAE}

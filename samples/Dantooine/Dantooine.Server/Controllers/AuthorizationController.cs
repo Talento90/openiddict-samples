@@ -57,14 +57,17 @@ public class AuthorizationController : Controller
         //  - If the user principal can't be extracted or the cookie is too old.
         //  - If prompt=login was specified by the client application.
         //  - If a max_age parameter was provided and the authentication cookie is not considered "fresh" enough.
-        var result = await HttpContext.AuthenticateAsync(IdentityConstants.ApplicationScheme);
-        if (result == null || !result.Succeeded || request.HasPrompt(Prompts.Login) ||
+        //
+        // For scenarios where the default authentication handler configured in the ASP.NET Core
+        // authentication options shouldn't be used, a specific scheme can be specified here.
+        var result = await HttpContext.AuthenticateAsync();
+        if (result == null || !result.Succeeded || request.HasPromptValue(PromptValues.Login) ||
            (request.MaxAge != null && result.Properties?.IssuedUtc != null &&
             DateTimeOffset.UtcNow - result.Properties.IssuedUtc > TimeSpan.FromSeconds(request.MaxAge.Value)))
         {
             // If the client application requested promptless authentication,
             // return an error indicating that the user is not logged in.
-            if (request.HasPrompt(Prompts.None))
+            if (request.HasPromptValue(PromptValues.None))
             {
                 return Forbid(
                     authenticationSchemes: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme,
@@ -77,7 +80,7 @@ public class AuthorizationController : Controller
 
             // To avoid endless login -> authorization redirects, the prompt=login flag
             // is removed from the authorization request payload before redirecting the user.
-            var prompt = string.Join(" ", request.GetPrompts().Remove(Prompts.Login));
+            var prompt = string.Join(" ", request.GetPromptValues().Remove(PromptValues.Login));
 
             var parameters = Request.HasFormContentType ?
                 Request.Form.Where(parameter => parameter.Key != Parameters.Prompt).ToList() :
@@ -85,12 +88,12 @@ public class AuthorizationController : Controller
 
             parameters.Add(KeyValuePair.Create(Parameters.Prompt, new StringValues(prompt)));
 
-            return Challenge(
-                authenticationSchemes: IdentityConstants.ApplicationScheme,
-                properties: new AuthenticationProperties
-                {
-                    RedirectUri = Request.PathBase + Request.Path + QueryString.Create(parameters)
-                });
+            // For scenarios where the default challenge handler configured in the ASP.NET Core
+            // authentication options shouldn't be used, a specific scheme can be specified here.
+            return Challenge(new AuthenticationProperties
+            {
+                RedirectUri = Request.PathBase + Request.Path + QueryString.Create(parameters)
+            });
         }
 
         // Retrieve the profile of the logged in user.
@@ -113,7 +116,7 @@ public class AuthorizationController : Controller
         {
             // If the consent is external (e.g when authorizations are granted by a sysadmin),
             // immediately return an error if no authorization can be found in the database.
-            case ConsentTypes.External when !authorizations.Any():
+            case ConsentTypes.External when authorizations.Count is 0:
                 return Forbid(
                     authenticationSchemes: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme,
                     properties: new AuthenticationProperties(new Dictionary<string, string>
@@ -126,8 +129,8 @@ public class AuthorizationController : Controller
             // If the consent is implicit or if an authorization was found,
             // return an authorization response without displaying the consent form.
             case ConsentTypes.Implicit:
-            case ConsentTypes.External when authorizations.Any():
-            case ConsentTypes.Explicit when authorizations.Any() && !request.HasPrompt(Prompts.Consent):
+            case ConsentTypes.External when authorizations.Count is not 0:
+            case ConsentTypes.Explicit when authorizations.Count is not 0 && !request.HasPromptValue(PromptValues.Consent):
                 // Create the claims-based identity that will be used by OpenIddict to generate tokens.
                 var identity = new ClaimsIdentity(
                     authenticationType: TokenValidationParameters.DefaultAuthenticationType,
@@ -138,7 +141,8 @@ public class AuthorizationController : Controller
                 identity.SetClaim(Claims.Subject, await _userManager.GetUserIdAsync(user))
                         .SetClaim(Claims.Email, await _userManager.GetEmailAsync(user))
                         .SetClaim(Claims.Name, await _userManager.GetUserNameAsync(user))
-                        .SetClaims(Claims.Role, (await _userManager.GetRolesAsync(user)).ToImmutableArray());
+                        .SetClaim(Claims.PreferredUsername, await _userManager.GetUserNameAsync(user))
+                        .SetClaims(Claims.Role, [.. (await _userManager.GetRolesAsync(user))]);
 
                 // Note: in this sample, the granted scopes match the requested scope
                 // but you may want to allow the user to uncheck specific scopes.
@@ -163,8 +167,8 @@ public class AuthorizationController : Controller
 
             // At this point, no authorization was found in the database and an error must be returned
             // if the client application specified prompt=none in the authorization request.
-            case ConsentTypes.Explicit   when request.HasPrompt(Prompts.None):
-            case ConsentTypes.Systematic when request.HasPrompt(Prompts.None):
+            case ConsentTypes.Explicit   when request.HasPromptValue(PromptValues.None):
+            case ConsentTypes.Systematic when request.HasPromptValue(PromptValues.None):
                 return Forbid(
                     authenticationSchemes: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme,
                     properties: new AuthenticationProperties(new Dictionary<string, string>
@@ -209,7 +213,7 @@ public class AuthorizationController : Controller
         // Note: the same check is already made in the other action but is repeated
         // here to ensure a malicious user can't abuse this POST-only endpoint and
         // force it to return a valid response without the external authorization.
-        if (!authorizations.Any() && await _applicationManager.HasConsentTypeAsync(application, ConsentTypes.External))
+        if (authorizations.Count is 0 && await _applicationManager.HasConsentTypeAsync(application, ConsentTypes.External))
         {
             return Forbid(
                 authenticationSchemes: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme,
@@ -231,7 +235,8 @@ public class AuthorizationController : Controller
         identity.SetClaim(Claims.Subject, await _userManager.GetUserIdAsync(user))
                 .SetClaim(Claims.Email, await _userManager.GetEmailAsync(user))
                 .SetClaim(Claims.Name, await _userManager.GetUserNameAsync(user))
-                .SetClaims(Claims.Role, (await _userManager.GetRolesAsync(user)).ToImmutableArray());
+                .SetClaim(Claims.PreferredUsername, await _userManager.GetUserNameAsync(user))
+                .SetClaims(Claims.Role, [.. (await _userManager.GetRolesAsync(user))]);
 
         // Note: in this sample, the granted scopes match the requested scope
         // but you may want to allow the user to uncheck specific scopes.
@@ -330,7 +335,8 @@ public class AuthorizationController : Controller
             identity.SetClaim(Claims.Subject, await _userManager.GetUserIdAsync(user))
                     .SetClaim(Claims.Email, await _userManager.GetEmailAsync(user))
                     .SetClaim(Claims.Name, await _userManager.GetUserNameAsync(user))
-                    .SetClaims(Claims.Role, (await _userManager.GetRolesAsync(user)).ToImmutableArray());
+                    .SetClaim(Claims.PreferredUsername, await _userManager.GetUserNameAsync(user))
+                    .SetClaims(Claims.Role, [.. (await _userManager.GetRolesAsync(user))]);
 
             identity.SetDestinations(GetDestinations);
 
@@ -349,7 +355,7 @@ public class AuthorizationController : Controller
 
         switch (claim.Type)
         {
-            case Claims.Name:
+            case Claims.Name or Claims.PreferredUsername:
                 yield return Destinations.AccessToken;
 
                 if (claim.Subject.HasScope(Scopes.Profile))

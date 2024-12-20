@@ -20,7 +20,6 @@ public class Startup
 
     public void ConfigureServices(IServiceCollection services)
     {
-        services.AddCors();
         services.AddControllersWithViews();
 
         services.AddDbContext<ApplicationDbContext>(options =>
@@ -43,7 +42,6 @@ public class Startup
         // (like pruning orphaned authorizations/tokens from the database) at regular intervals.
         services.AddQuartz(options =>
         {
-            options.UseMicrosoftDependencyInjectionJobFactory();
             options.UseSimpleTypeLoader();
             options.UseInMemoryStore();
         });

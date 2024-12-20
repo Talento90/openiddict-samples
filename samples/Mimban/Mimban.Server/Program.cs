@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using OpenIddict.Abstractions;
-using OpenIddict.Client.AspNetCore;
 using OpenIddict.Server.AspNetCore;
 using OpenIddict.Validation.AspNetCore;
 using Quartz;
@@ -19,7 +18,6 @@ var builder = WebApplication.CreateBuilder(args);
 // (like pruning orphaned authorizations/tokens from the database) at regular intervals.
 builder.Services.AddQuartz(options =>
 {
-    options.UseMicrosoftDependencyInjectionJobFactory();
     options.UseSimpleTypeLoader();
     options.UseInMemoryStore();
 });
@@ -27,7 +25,11 @@ builder.Services.AddQuartz(options =>
 // Register the Quartz.NET service and configure it to block shutdown until jobs are complete.
 builder.Services.AddQuartzHostedService(options => options.WaitForJobsToComplete = true);
 
-builder.Services.AddDbContext<DbContext>(options => options.UseSqlite($"Filename={Path.Combine(Path.GetTempPath(), "openiddict-mimban-server.sqlite3")}").UseOpenIddict());
+builder.Services.AddDbContext<DbContext>(options =>
+{
+    options.UseSqlite($"Filename={Path.Combine(Path.GetTempPath(), "openiddict-mimban-server.sqlite3")}");
+    options.UseOpenIddict();
+});
 
 builder.Services.AddOpenIddict()
 
@@ -66,7 +68,7 @@ builder.Services.AddOpenIddict()
         // parameter containing their URL as part of authorization responses. For more information,
         // see https://datatracker.ietf.org/doc/html/draft-ietf-oauth-security-topics#section-4.4.
         options.UseWebProviders()
-               .UseGitHub(options =>
+               .AddGitHub(options =>
                {
                    options.SetClientId("c4ade52327b01ddacff3")
                           .SetClientSecret("da6bed851b75e317bf6b2cb67013679d9467c122")
@@ -131,10 +133,12 @@ await using (var scope = app.Services.CreateAsyncScope())
     {
         await manager.CreateAsync(new OpenIddictApplicationDescriptor
         {
+            ApplicationType = ApplicationTypes.Native,
             ClientId = "console_app",
+            ClientType = ClientTypes.Public,
             RedirectUris =
             {
-                new Uri("http://localhost:8914/")
+                new Uri("http://localhost/")
             },
             Permissions =
             {
@@ -150,15 +154,19 @@ await using (var scope = app.Services.CreateAsyncScope())
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapGet("/api", [Authorize(AuthenticationSchemes = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme)]
+app.MapGet("api", [Authorize(AuthenticationSchemes = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme)]
     (ClaimsPrincipal user) => user.Identity!.Name);
 
-app.MapMethods("callback/login/github", new[] { HttpMethods.Get, HttpMethods.Post }, async (HttpContext context) =>
+app.MapMethods("callback/login/github", [HttpMethods.Get, HttpMethods.Post], async (HttpContext context) =>
 {
     // Resolve the claims extracted by OpenIddict from the userinfo response returned by GitHub.
-    var result = await context.AuthenticateAsync(OpenIddictClientAspNetCoreDefaults.AuthenticationScheme);
+    var result = await context.AuthenticateAsync(Providers.GitHub);
 
-    var identity = new ClaimsIdentity(Providers.GitHub);
+    var identity = new ClaimsIdentity(
+        authenticationType: "ExternalLogin",
+        nameType: ClaimTypes.Name,
+        roleType: ClaimTypes.Role);
+
     identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, result.Principal!.FindFirst("id")!.Value));
 
     var properties = new AuthenticationProperties
@@ -166,14 +174,19 @@ app.MapMethods("callback/login/github", new[] { HttpMethods.Get, HttpMethods.Pos
         RedirectUri = result.Properties!.RedirectUri
     };
 
-    return Results.SignIn(new ClaimsPrincipal(identity), properties, CookieAuthenticationDefaults.AuthenticationScheme);
+    // For scenarios where the default sign-in handler configured in the ASP.NET Core
+    // authentication options shouldn't be used, a specific scheme can be specified here.
+    return Results.SignIn(new ClaimsPrincipal(identity), properties);
 });
 
-app.MapGet("/authorize", async (HttpContext context) =>
+app.MapMethods("authorize", [HttpMethods.Get, HttpMethods.Post], async (HttpContext context) =>
 {
     // Resolve the claims stored in the cookie created after the GitHub authentication dance.
     // If the principal cannot be found, trigger a new challenge to redirect the user to GitHub.
-    var principal = (await context.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme))?.Principal;
+    //
+    // For scenarios where the default authentication handler configured in the ASP.NET Core
+    // authentication options shouldn't be used, a specific scheme can be specified here.
+    var principal = (await context.AuthenticateAsync())?.Principal;
     if (principal is null)
     {
         var properties = new AuthenticationProperties
@@ -181,7 +194,7 @@ app.MapGet("/authorize", async (HttpContext context) =>
             RedirectUri = context.Request.GetEncodedUrl()
         };
 
-        return Results.Challenge(properties, new[] { OpenIddictClientAspNetCoreDefaults.AuthenticationScheme });
+        return Results.Challenge(properties, [Providers.GitHub]);
     }
 
     var identifier = principal.FindFirst(ClaimTypes.NameIdentifier)!.Value;
@@ -195,6 +208,7 @@ app.MapGet("/authorize", async (HttpContext context) =>
     // Import a few select claims from the identity stored in the local cookie.
     identity.AddClaim(new Claim(Claims.Subject, identifier));
     identity.AddClaim(new Claim(Claims.Name, identifier).SetDestinations(Destinations.AccessToken));
+    identity.AddClaim(new Claim(Claims.PreferredUsername, identifier).SetDestinations(Destinations.AccessToken));
 
     return Results.SignIn(new ClaimsPrincipal(identity), properties: null, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
 });

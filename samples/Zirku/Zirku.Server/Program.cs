@@ -25,7 +25,6 @@ var builder = WebApplication.CreateBuilder(args);
 // (like pruning orphaned authorizations/tokens from the database) at regular intervals.
 builder.Services.AddQuartz(options =>
 {
-    options.UseMicrosoftDependencyInjectionJobFactory();
     options.UseSimpleTypeLoader();
     options.UseInMemoryStore();
 });
@@ -100,12 +99,16 @@ builder.Services.AddOpenIddict()
         options.UseAspNetCore();
     });
 
-builder.Services.AddCors();
+builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
+    policy.AllowAnyHeader()
+          .AllowAnyMethod()
+          .WithOrigins("http://localhost:5112")));
+
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-app.UseCors(b => b.AllowAnyHeader().AllowAnyMethod().WithOrigins("http://localhost:5112"));
+app.UseCors();
 app.UseHttpsRedirection();
 
 // Create new application registrations matching the values configured in Zirku.Client1 and Zirku.Api1.
@@ -126,10 +129,12 @@ await using (var scope = app.Services.CreateAsyncScope())
         {
             await manager.CreateAsync(new OpenIddictApplicationDescriptor
             {
+                ApplicationType = ApplicationTypes.Native,
                 ClientId = "console_app",
+                ClientType = ClientTypes.Public,
                 RedirectUris =
                 {
-                    new Uri("http://localhost:8739/")
+                    new Uri("http://localhost/")
                 },
                 Permissions =
                 {
@@ -151,7 +156,7 @@ await using (var scope = app.Services.CreateAsyncScope())
             await manager.CreateAsync(new OpenIddictApplicationDescriptor
             {
                 ClientId = "spa",
-                Type = ClientTypes.Public,
+                ClientType = ClientTypes.Public,
                 RedirectUris =
                 {
                     new Uri("http://localhost:5112/index.html"),
@@ -161,7 +166,7 @@ await using (var scope = app.Services.CreateAsyncScope())
                 Permissions =
                 {
                     Permissions.Endpoints.Authorization,
-                    Permissions.Endpoints.Logout,
+                    Permissions.Endpoints.EndSession,
                     Permissions.Endpoints.Token,
                     Permissions.GrantTypes.AuthorizationCode,
                     Permissions.GrantTypes.RefreshToken,
@@ -229,10 +234,10 @@ await using (var scope = app.Services.CreateAsyncScope())
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapGet("/api", [Authorize(AuthenticationSchemes = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme)]
+app.MapGet("api", [Authorize(AuthenticationSchemes = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme)]
 (ClaimsPrincipal user) => user.Identity!.Name);
 
-app.MapGet("/authorize", async (HttpContext context, IOpenIddictScopeManager manager) =>
+app.MapMethods("authorize", [HttpMethods.Get, HttpMethods.Post], async (HttpContext context, IOpenIddictScopeManager manager) =>
 {
     // Retrieve the OpenIddict server request from the HTTP context.
     var request = context.GetOpenIddictServerRequest();
@@ -241,7 +246,7 @@ app.MapGet("/authorize", async (HttpContext context, IOpenIddictScopeManager man
     if (identifier is not (1 or 2))
     {
         return Results.Challenge(
-            authenticationSchemes: new[] { OpenIddictServerAspNetCoreDefaults.AuthenticationScheme },
+            authenticationSchemes: [OpenIddictServerAspNetCoreDefaults.AuthenticationScheme],
             properties: new AuthenticationProperties(new Dictionary<string, string>
             {
                 [OpenIddictServerAspNetCoreConstants.Properties.Error] = Errors.InvalidRequest,
@@ -263,6 +268,12 @@ app.MapGet("/authorize", async (HttpContext context, IOpenIddictScopeManager man
         2 => "Bob",
         _ => throw new InvalidOperationException()
     }));
+    identity.AddClaim(new Claim(Claims.PreferredUsername, identifier switch
+    {
+        1 => "Alice",
+        2 => "Bob",
+        _ => throw new InvalidOperationException()
+    }));
 
     // Note: in this sample, the client is granted all the requested scopes for the first identity (Alice)
     // but for the second one (Bob), only the "api1" scope can be granted, which will cause requests sent
@@ -271,14 +282,14 @@ app.MapGet("/authorize", async (HttpContext context, IOpenIddictScopeManager man
     identity.SetScopes(identifier switch
     {
         1 => request.GetScopes(),
-        2 => new[] { "api1" }.Intersect(request.GetScopes()),
+        2 => new[] { Scopes.OpenId, "api1" }.Intersect(request.GetScopes()),
         _ => throw new InvalidOperationException()
     });
 
     identity.SetResources(await manager.ListResourcesAsync(identity.GetScopes()).ToListAsync());
 
     // Allow all claims to be added in the access tokens.
-    identity.SetDestinations(claim => new[] { Destinations.AccessToken });
+    identity.SetDestinations(claim => [Destinations.AccessToken]);
 
     return Results.SignIn(new ClaimsPrincipal(identity), properties: null, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
 });

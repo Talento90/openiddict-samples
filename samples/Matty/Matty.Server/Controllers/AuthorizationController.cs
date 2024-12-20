@@ -48,19 +48,9 @@ public class AuthorizationController : Controller
     [Authorize, HttpGet("~/connect/verify"), IgnoreAntiforgeryToken]
     public async Task<IActionResult> Verify()
     {
-        var request = HttpContext.GetOpenIddictServerRequest() ??
-            throw new InvalidOperationException("The OpenID Connect request cannot be retrieved.");
-
-        // If the user code was not specified in the query string (e.g as part of the verification_uri_complete),
-        // render a form to ask the user to enter the user code manually (non-digit chars are automatically ignored).
-        if (string.IsNullOrEmpty(request.UserCode))
-        {
-            return View(new VerifyViewModel());
-        }
-
         // Retrieve the claims principal associated with the user code.
         var result = await HttpContext.AuthenticateAsync(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
-        if (result.Succeeded)
+        if (result.Succeeded && !string.IsNullOrEmpty(result.Principal.GetClaim(Claims.ClientId)))
         {
             // Retrieve the application details from the database using the client_id stored in the principal.
             var application = await _applicationManager.FindByClientIdAsync(result.Principal.GetClaim(Claims.ClientId)) ??
@@ -71,16 +61,23 @@ public class AuthorizationController : Controller
             {
                 ApplicationName = await _applicationManager.GetLocalizedDisplayNameAsync(application),
                 Scope = string.Join(" ", result.Principal.GetScopes()),
-                UserCode = request.UserCode
+                UserCode = result.Properties.GetTokenValue(OpenIddictServerAspNetCoreConstants.Tokens.UserCode)
             });
         }
 
-        // Redisplay the form when the user code is not valid.
-        return View(new VerifyViewModel
+        // If a user code was specified (e.g as part of the verification_uri_complete)
+        // but is not valid, render a form asking the user to enter the user code manually.
+        else if (!string.IsNullOrEmpty(result.Properties.GetTokenValue(OpenIddictServerAspNetCoreConstants.Tokens.UserCode)))
         {
-            Error = Errors.InvalidToken,
-            ErrorDescription = "The specified user code is not valid. Please make sure you typed it correctly."
-        });
+            return View(new VerifyViewModel
+            {
+                Error = Errors.InvalidToken,
+                ErrorDescription = "The specified user code is not valid. Please make sure you typed it correctly."
+            });
+        }
+
+        // Otherwise, render a form asking the user to enter the user code manually.
+        return View(new VerifyViewModel());
     }
 
     [Authorize, FormValueRequired("submit.Accept")]
@@ -93,7 +90,7 @@ public class AuthorizationController : Controller
 
         // Retrieve the claims principal associated with the user code.
         var result = await HttpContext.AuthenticateAsync(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
-        if (result.Succeeded)
+        if (result.Succeeded && !string.IsNullOrEmpty(result.Principal.GetClaim(Claims.ClientId)))
         {
             // Create the claims-based identity that will be used by OpenIddict to generate tokens.
             var identity = new ClaimsIdentity(
@@ -105,7 +102,8 @@ public class AuthorizationController : Controller
             identity.SetClaim(Claims.Subject, await _userManager.GetUserIdAsync(user))
                     .SetClaim(Claims.Email, await _userManager.GetEmailAsync(user))
                     .SetClaim(Claims.Name, await _userManager.GetUserNameAsync(user))
-                    .SetClaims(Claims.Role, (await _userManager.GetRolesAsync(user)).ToImmutableArray());
+                    .SetClaim(Claims.PreferredUsername, await _userManager.GetUserNameAsync(user))
+                    .SetClaims(Claims.Role, [.. (await _userManager.GetRolesAsync(user))]);
 
             // Note: in this sample, the granted scopes match the requested scope
             // but you may want to allow the user to uncheck specific scopes.
@@ -190,7 +188,8 @@ public class AuthorizationController : Controller
             identity.SetClaim(Claims.Subject, await _userManager.GetUserIdAsync(user))
                     .SetClaim(Claims.Email, await _userManager.GetEmailAsync(user))
                     .SetClaim(Claims.Name, await _userManager.GetUserNameAsync(user))
-                    .SetClaims(Claims.Role, (await _userManager.GetRolesAsync(user)).ToImmutableArray());
+                    .SetClaim(Claims.PreferredUsername, await _userManager.GetUserNameAsync(user))
+                    .SetClaims(Claims.Role, [.. (await _userManager.GetRolesAsync(user))]);
 
             identity.SetDestinations(GetDestinations);
 
@@ -209,7 +208,7 @@ public class AuthorizationController : Controller
 
         switch (claim.Type)
         {
-            case Claims.Name:
+            case Claims.Name or Claims.PreferredUsername:
                 yield return Destinations.AccessToken;
 
                 if (claim.Subject.HasScope(Scopes.Profile))

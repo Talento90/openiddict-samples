@@ -2,8 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net7.0</TargetFramework>
-    <EnablePreviewFeatures>true</EnablePreviewFeatures>
+    <TargetFramework>$(NetCoreTargetFramework)</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>

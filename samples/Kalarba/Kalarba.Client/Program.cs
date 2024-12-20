@@ -32,7 +32,7 @@ services.AddOpenIddict()
         });
     });
 
-await using var provider = services.BuildServiceProvider();
+using var provider = services.BuildServiceProvider();
 
 var token = await GetTokenAsync(provider, "alice@wonderland.com", "P@ssw0rd");
 Console.WriteLine("Access token: {0}", token);
@@ -47,17 +47,19 @@ static async Task<string> GetTokenAsync(IServiceProvider provider, string email,
 {
     var service = provider.GetRequiredService<OpenIddictClientService>();
 
-    var (response, principal) = await service.AuthenticateWithPasswordAsync(
-        issuer  : new Uri("http://localhost:58779/", UriKind.Absolute),
-        username: email,
-        password: password);
+    var result = await service.AuthenticateWithPasswordAsync(new()
+    {
+        Username = email,
+        Password = password
+    });
 
-    return response.AccessToken;
+    return result.AccessToken;
 }
 
 static async Task<string> GetResourceAsync(IServiceProvider provider, string token)
 {
-    using var client = provider.GetRequiredService<HttpClient>();
+    var factory = provider.GetRequiredService<IHttpClientFactory>();
+    using var client = factory.CreateClient();
     using var request = new HttpRequestMessage(HttpMethod.Get, "http://localhost:58779/api/message");
     request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 

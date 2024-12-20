@@ -23,7 +23,7 @@ var host = new HostBuilder()
             {
                 // Note: this sample uses the device authorization flow,
                 // but you can enable the other flows if necessary.
-                options.AllowDeviceCodeFlow();
+                options.AllowDeviceAuthorizationFlow();
 
                 // Disable token storage, which is not necessary for the device authorization flow.
                 options.DisableTokenStorage();
@@ -43,7 +43,6 @@ var host = new HostBuilder()
                 options.AddRegistration(new OpenIddictClientRegistration
                 {
                     Issuer = new Uri("https://localhost:44321/", UriKind.Absolute),
-                    ProviderName = "Local",
 
                     ClientId = "device",
                     Scopes = { Scopes.Email, Scopes.Profile, Scopes.OfflineAccess }

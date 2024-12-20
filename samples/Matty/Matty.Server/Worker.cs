@@ -30,14 +30,14 @@ public class Worker : IHostedService
             await manager.CreateAsync(new OpenIddictApplicationDescriptor
             {
                 ClientId = "device",
-                Type = ClientTypes.Public,
+                ClientType = ClientTypes.Public,
                 ConsentType = ConsentTypes.Explicit,
                 DisplayName = "Device client",
                 Permissions =
                 {
                     Permissions.GrantTypes.DeviceCode,
                     Permissions.GrantTypes.RefreshToken,
-                    Permissions.Endpoints.Device,
+                    Permissions.Endpoints.DeviceAuthorization,
                     Permissions.Endpoints.Token,
                     Permissions.Scopes.Email,
                     Permissions.Scopes.Profile,
