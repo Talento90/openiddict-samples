@@ -99,12 +99,16 @@ builder.Services.AddOpenIddict()
         options.UseAspNetCore();
     });
 
-builder.Services.AddCors();
+builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
+    policy.AllowAnyHeader()
+          .AllowAnyMethod()
+          .WithOrigins("http://localhost:5112")));
+
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-app.UseCors(b => b.AllowAnyHeader().AllowAnyMethod().WithOrigins("http://localhost:5112"));
+app.UseCors();
 app.UseHttpsRedirection();
 
 // Create new application registrations matching the values configured in Zirku.Client1 and Zirku.Api1.
@@ -278,7 +282,7 @@ app.MapMethods("authorize", [HttpMethods.Get, HttpMethods.Post], async (HttpCont
     identity.SetScopes(identifier switch
     {
         1 => request.GetScopes(),
-        2 => new[] { "api1" }.Intersect(request.GetScopes()),
+        2 => new[] { Scopes.OpenId, "api1" }.Intersect(request.GetScopes()),
         _ => throw new InvalidOperationException()
     });
 
